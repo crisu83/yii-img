@@ -4,7 +4,7 @@
  * @author Christoffer Niska <ChristofferNiska@gmail.com>
  * @copyright Copyright &copy; Christoffer Niska 2011-
  * @license http://www.opensource.org/licenses/bsd-license.php New BSD License
- * @version 0.5
+ * @version 1.0
  */
 class ImageModule extends CWebModule
 {
@@ -86,6 +86,6 @@ class ImageModule extends CWebModule
 	 */
 	public function getVersion()
 	{
-		return '0.5';
+		return '1.0';
 	}
 }
