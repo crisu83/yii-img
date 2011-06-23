@@ -75,8 +75,9 @@ class ImgManager extends CApplicationComponent
 	{
 		if(isset($this->versions[$versionName]))
 		{
+			$image = $this->loadModel($id);
 			$options=ImgOptions::create($this->versions[$versionName]);
-			$filename=$this->resolveFileName($id,$options);
+			$filename=$this->resolveFileName($id,$image->extension);
 			$path=$this->getVersionPath($versionName);
 			return Yii::app()->request->getBaseUrl().'/'.$path.$filename;
 		}
@@ -122,23 +123,22 @@ class ImgManager extends CApplicationComponent
 		catch(CException $e)
 		{
 			$trx->rollback();
-			return false;
+			throw $e;
 		}
 	}
 
 	/**
-	 * Loads an existing image.
+	 * Loads a thumb of a specific image.
 	 * @param integer $id the image id.
 	 * @return ThumbBase
 	 */
-	public function load($id)
+	public function loadThumb($id)
 	{
-		$image=Image::model()->findByPk($id);
+		$image=$this->loadModel($id);
 
 		if($image!==null)
 		{
-			$options=ImgOptions::create(array('extension'=>$image->extension));
-			$fileName=$this->resolveFileName($id,$options);
+			$fileName=$this->resolveFileName($id,$image->extension);
 			$thumb=self::thumbFactory($fileName);
 			return $thumb;
 		}
@@ -147,23 +147,38 @@ class ImgManager extends CApplicationComponent
 	}
 
 	/**
+	 * Loads a specific image model.
+	 * @param integer $id the image id.
+	 * @return Image
+	 */
+	public function loadModel($id)
+	{
+		return Image::model()->findByPk($id);
+	}
+
+	/**
 	 * Creates a new version of a specific image.
 	 * @param integer $id the image id.
-	 * @param string $versionName the name of the image version.
+	 * @param string $version the image version.
 	 * @return ThumbBase
 	 */
-	public function createVersion($id,$versionName)
+	public function createVersion($id,$version)
 	{
-		if(isset($this->versions[$versionName]))
+		if(isset($this->versions[$version]))
 		{
-			$options=ImgOptions::create($this->versions[$versionName]);
-			$fileName=$this->resolveFileName($id,$options);
+			$image = $this->loadModel($id);
 
-			$thumb=self::thumbFactory($fileName);
-			$thumb->applyOptions($options);
-
-			$path=$this->getVersionPath($versionName,true);
-			return $thumb->save($path.$fileName);
+			if($image!=null)
+			{
+				$fileName=$this->resolveFileName($id,$image->extension);
+				$thumb=self::thumbFactory($fileName);
+				$options=ImgOptions::create($this->versions[$version]);
+				$thumb->applyOptions($options);
+				$path=$this->getVersionPath($version,true);
+				return $thumb->save($path.$fileName);
+			}
+			else
+				throw new ImgException(Img::t('error','Failed to create version! Image could not be found.'));
 		}
 		else
 			throw new ImgException(Img::t('error','Failed to create version! Version is unknown.'));
@@ -189,12 +204,12 @@ class ImgManager extends CApplicationComponent
 	/**
 	 * Returns the original image file name.
 	 * @param integer $id the image id.
-	 * @param ImgOptions $options the image options.
+	 * @param string $extension the file extension.
 	 * @return string the file name.
 	 */
-	private function resolveFileName($id,$options)
+	private function resolveFileName($id,$extension)
 	{
-		return $id.'.'.$options->extension;
+		return $id.'.'.$extension;
 	}
 
 	/**

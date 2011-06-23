@@ -56,12 +56,6 @@ class ImgOptions extends CComponent
 	 * @property string the method to use when rotating.
 	 */
 	public $rotateMethod;
-	/**
-	 * @property string the file extension, valid values are "gif", "jpg" and "png".
-	 */
-	public $extension;
-
-	public static $validExtensions=array('gif','jpg','png');
 
 	/**
 	 * When applied the image is re-sized to the given dimensions.
@@ -169,7 +163,6 @@ class ImgOptions extends CComponent
 			'rotateDirection',
 			'rotateDegrees',
 			'rotateMethod',
-			'extension',
 		);
 		foreach($properties as $name)
 			$result[$name]=$this->{$name};
