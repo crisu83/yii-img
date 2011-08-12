@@ -142,7 +142,7 @@ class ImgManager extends CApplicationComponent
 			$filename=$this->resolveFileName($image);
 			$filepath=$this->getImagePath(true).$filename;
 
-			$image->delete();
+			if($image->delete()===false)
 				throw new ImgException(Img::t('error', 'Failed to delete image! Record could not be deleted.'));
 
 			if(file_exists($filepath)!==false && unlink($filepath)===false)
