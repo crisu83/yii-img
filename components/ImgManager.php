@@ -67,18 +67,18 @@ class ImgManager extends CApplicationComponent
 	/**
 	 * Returns the URL for a specific image.
 	 * @param string $id the image id.
-	 * @param string $versionName the name of the image version.
+	 * @param string $version the name of the image version.
 	 * @return string the URL.
 	 * @throws CException if the version is not defined.
 	 */
-	public function getURL($id,$versionName)
+	public function getURL($id,$version)
 	{
-		if(isset($this->versions[$versionName]))
+		if(isset($this->versions[$version]))
 		{
 			$image = $this->loadModel($id);
-			$options=ImgOptions::create($this->versions[$versionName]);
-			$filename=$this->resolveFileName($id,$image->extension);
-			$path=$this->getVersionPath($versionName);
+			$options=ImgOptions::create($this->versions[$version]);
+			$filename=$this->resolveFileName($image);
+			$path=$this->getVersionPath($version);
 			return Yii::app()->request->getBaseUrl().'/'.$path.$filename;
 		}
 		else
@@ -109,13 +109,13 @@ class ImgManager extends CApplicationComponent
 			$image->created=new CDbExpression('NOW()');
 
 			if($image->save(true)===false)
-				throw new ImgException(Img::t('error','Failed saving the image record!'));
+				throw new ImgException(Img::t('error','Failed to save image! Record could not be saved.'));
 
-			$filename=$image->id.'.'.$file->getExtensionName();
+			$filename=$this->resolveFileName($image);
 			$path=$this->getImagePath(true);
 
 			if($file->saveAs($path.$filename)===false)
-				throw new ImgException(Img::t('error','Failed saving the image file!'));
+				throw new ImgException(Img::t('error','Failed to save image! File could not be saved.'));
 
 			$trx->commit();
 			return $image;
@@ -125,6 +125,54 @@ class ImgManager extends CApplicationComponent
 			$trx->rollback();
 			throw $e;
 		}
+	}
+
+	/**
+	 * Deletes a specific image.
+	 * @param $id the image id.
+	 * @return boolean whether the image was deleted.
+	 * @throws ImgException if the image cannot be deleted.
+	 */
+	public function delete($id)
+	{
+		$image = Image::model()->findByPk($id);
+
+		if($image instanceof Image)
+		{
+			$filename=$this->resolveFileName($image);
+			$filepath=$this->getImagePath(true).$filename;
+
+			$image->delete();
+				throw new ImgException(Img::t('error', 'Failed to delete image! Record could not be deleted.'));
+
+			if(file_exists($filepath)!==false && unlink($filepath)===false)
+				throw new ImgException(Img::t('error', 'Failed to delete image! File could not be deleted.'));
+
+			foreach($this->versions as $version=>$config)
+				$this->deleteVersion($image, $version);
+		}
+		else
+			throw new ImgException(Img::t('error', 'Failed to delete image! Record could not be found.'));
+	}
+
+	/**
+	 * Deletes a specific image version.
+	 * @param Image $image the image model.
+	 * @param string $version the image version.
+	 * @return boolean whether the image was deleted.
+	 * @throws ImgException if the image cannot be deleted.
+	 */
+	private function deleteVersion($image,$version)
+	{
+		if(isset($this->versions[$version]))
+		{
+			$filepath=$this->resolveImageVersionPath($image,$version);
+
+			if(file_exists($filepath)!==false && unlink($filepath)===false)
+				throw new ImgException(Img::t('error', 'Failed to delete the image version! File could not be deleted.'));
+		}
+		else
+			throw new ImgException(Img::t('error', 'Failed to delete image version! Version is unknown.'));
 	}
 
 	/**
@@ -138,7 +186,7 @@ class ImgManager extends CApplicationComponent
 
 		if($image!==null)
 		{
-			$fileName=$this->resolveFileName($id,$image->extension);
+			$fileName=$this->resolveFileName($image);
 			$thumb=self::thumbFactory($fileName);
 			return $thumb;
 		}
@@ -170,7 +218,7 @@ class ImgManager extends CApplicationComponent
 
 			if($image!=null)
 			{
-				$fileName=$this->resolveFileName($id,$image->extension);
+				$fileName=$this->resolveFileName($image);
 				$thumb=self::thumbFactory($fileName);
 				$options=ImgOptions::create($this->versions[$version]);
 				$thumb->applyOptions($options);
@@ -186,13 +234,13 @@ class ImgManager extends CApplicationComponent
 
 	/**
 	 * Returns the version specific path.
-	 * @param string $versionName the name of the image version.
+	 * @param string $version the name of the image version.
 	 * @param boolean $absolute whether the path should be absolute.
 	 * @return string the path.
 	 */
-	private function getVersionPath($versionName,$absolute=false)
+	private function getVersionPath($version,$absolute=false)
 	{
-		$path=$this->getVersionBasePath($absolute).$versionName.'/';
+		$path=$this->getVersionBasePath($absolute).$version.'/';
 
 		// Might be a new version so we need to create the path if it doesn't exist.
 		if(!file_exists($path))
@@ -203,13 +251,24 @@ class ImgManager extends CApplicationComponent
 
 	/**
 	 * Returns the original image file name.
-	 * @param integer $id the image id.
-	 * @param string $extension the file extension.
+	 * @param Image $image the image model.
 	 * @return string the file name.
 	 */
-	private function resolveFileName($id,$extension)
+	private function resolveFileName($image)
 	{
-		return $id.'.'.$extension;
+		return $image instanceof Image ? $image->id.'.'.$image->extension : null;
+	}
+
+	/**
+	 * Returns the path to a specific image version.
+	 * @param Image $image the image model.
+	 * @param string $version the image version.
+	 * @return string the path.
+	 */
+	private function resolveImageVersionPath($image,$version)
+	{
+		$filename=$this->resolveFileName($image);
+		return $image instanceof Image ? $this->getVersionPath($version,true).$filename : null;
 	}
 
 	/**
