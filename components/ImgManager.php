@@ -103,7 +103,7 @@ class ImgManager extends CApplicationComponent
 			$image->parent=$parent;
 			$image->parentId=$parentId;
 			$image->filename=$file->getName();
-			$image->extension=$file->getExtensionName();
+			$image->extension=strtolower($file->getExtensionName());
 			$image->byteSize=$file->getSize();
 			$image->mimeType=$file->getType();
 			$image->created=new CDbExpression('NOW()');
